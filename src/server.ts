@@ -23,6 +23,7 @@ createBullBoard({
   serverAdapter: bullBoard,
 });
 
+app.use(express.json({ limit: "100kb" }));
 app.use("/trpc", createExpressMiddleware({ router: appRouter }));
 app.use("/admin/queues", bullBoard.getRouter());
 // Serves the production build; harmless in dev, where vite serves the client.

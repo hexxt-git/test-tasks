@@ -8,6 +8,11 @@ import { tasksQueue } from "./tasks/queue.ts";
 // A dropped SSE stream never errors, so the ping doubles as a liveness signal:
 // once it stops arriving the client reconnects on its own.
 const t = initTRPC.create({
+  // Stack traces carry absolute paths; keep them in dev, never ship them.
+  errorFormatter: ({ shape }) =>
+    process.env.NODE_ENV === "production"
+      ? { ...shape, data: { ...shape.data, stack: undefined } }
+      : shape,
   sse: {
     ping: { enabled: true, intervalMs: 2000 },
     client: { reconnectAfterInactivityMs: 5000 },
@@ -27,7 +32,7 @@ export const appRouter = t.router({
   list: t.procedure.query(() => listJobs()),
 
   greet: t.procedure
-    .input(z.object({ name: z.string().min(1) }))
+    .input(z.object({ name: z.string().min(1).max(100) }))
     .mutation(async ({ input }) => {
       const job: Job = {
         jobId: crypto.randomUUID(),
