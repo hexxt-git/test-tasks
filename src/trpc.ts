@@ -1,29 +1,20 @@
 import { initTRPC } from "@trpc/server";
-import { EventEmitter, on, setMaxListeners } from "node:events";
+import { on } from "node:events";
 import { z } from "zod";
-import { jobs, type Job } from "./db.ts";
-import { tasksQueue, tasksQueueEvents } from "./tasks/queue.ts";
+import { bus, patch } from "./bus.ts";
+import { createJob, listJobs, type Job } from "./db.ts";
+import { tasksQueue } from "./tasks/queue.ts";
 
-const t = initTRPC.create();
+// A dropped SSE stream never errors, so the ping doubles as a liveness signal:
+// once it stops arriving the client reconnects on its own.
+const t = initTRPC.create({
+  sse: {
+    ping: { enabled: true, intervalMs: 2000 },
+    client: { reconnectAfterInactivityMs: 5000 },
+  },
+});
 
-/**
- * One emitter fans every queue event out to all subscribers, so we hold a
- * handful of listeners on the QueueEvents instance regardless of how many
- * clients connect.
- */
-const bus = new EventEmitter<{ job: [Job] }>();
-setMaxListeners(0, bus);
-
-/** Writes the row, then ships the whole row so clients upsert instead of refetch. */
-const patch = (jobId: string, fields: Partial<Job>) => {
-  const job = jobs.get(jobId);
-  if (job) bus.emit("job", Object.assign(job, fields));
-};
-
-/**
- * ioredis retries forever (maxRetriesPerRequest: null, which Worker requires),
- * so an unreachable redis hangs the request instead of failing it.
- */
+/** Without this an unreachable redis hangs the request instead of failing it. */
 const withTimeout = <T>(work: Promise<T>, message: string) =>
   Promise.race([
     work,
@@ -32,30 +23,12 @@ const withTimeout = <T>(work: Promise<T>, message: string) =>
     ),
   ]);
 
-tasksQueueEvents.on("active", ({ jobId }) =>
-  patch(jobId, { status: "running" }),
-);
-tasksQueueEvents.on("progress", ({ jobId, data }) =>
-  patch(jobId, { status: "running", progress: Number(data) }),
-);
-tasksQueueEvents.on("completed", ({ jobId, returnvalue }) =>
-  patch(jobId, {
-    status: "completed",
-    progress: 100,
-    detail: String(returnvalue),
-  }),
-);
-tasksQueueEvents.on("failed", ({ jobId, failedReason }) =>
-  patch(jobId, { status: "failed", detail: failedReason }),
-);
-
 export const appRouter = t.router({
-  list: t.procedure.query(() => [...jobs.values()]),
+  list: t.procedure.query(() => listJobs()),
 
   greet: t.procedure
     .input(z.object({ name: z.string().min(1) }))
     .mutation(async ({ input }) => {
-      // Stored before it is queued, so no worker event can land on a missing row.
       const job: Job = {
         jobId: crypto.randomUUID(),
         name: input.name,
@@ -63,7 +36,8 @@ export const appRouter = t.router({
         progress: 0,
       };
 
-      jobs.set(job.jobId, job);
+      // Stored before it is queued, so no worker event lands on a missing row.
+      createJob(job);
       bus.emit("job", job);
 
       await withTimeout(
@@ -80,7 +54,7 @@ export const appRouter = t.router({
       });
     }),
 
-  // Broadcasts every job's events; clients patch their cached list with them.
+  // Every job's events, for every client; there is nothing per-client to filter.
   subscribe: t.procedure.subscription(async function* ({ signal }) {
     for await (const [job] of on(bus, "job", { signal })) yield job;
   }),

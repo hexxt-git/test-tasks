@@ -13,13 +13,13 @@ export default function App() {
   const subscription = useSubscription(
     trpc.subscribe.subscriptionOptions(undefined, {
       onData(job) {
-        // Upsert into the cached list -- no invalidate, no refetch.
+        // Upsert by jobId -- no invalidate, no refetch.
         queryClient.setQueryData(trpc.list.queryKey(), (prev: Job[] = []) => [
           ...new Map([...prev, job].map((j) => [j.jobId, j])).values(),
         ]);
       },
-      // A dropped stream never replays what it missed, so re-sync on every
-      // (re)connect. Also closes the gap between the list fetch and attach.
+      // Reconnects replay nothing, so re-sync. Also covers the gap between the
+      // initial list fetch and the stream attaching.
       onConnectionStateChange(state) {
         if (state.state === "pending")
           queryClient.invalidateQueries({ queryKey: trpc.list.queryKey() });

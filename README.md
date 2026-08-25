@@ -1,32 +1,47 @@
-# React + TypeScript + Vite
+# test-tasks
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Submit a name, a BullMQ worker processes it, and the UI streams status and progress live over tRPC subscriptions.
 
-Currently, two official plugins are available:
+React 19 + Vite + Tailwind, tRPC on Express, TanStack Query, BullMQ on Redis.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Run
 
-## React Compiler
+Needs Redis on `redis://localhost:20824` (override with `REDIS_URL`). Each in its own terminal:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+pnpm install
+pnpm server   # express + tRPC API on :5050 (PORT to override)
+pnpm dev      # vite client on :5173, proxies /trpc to the server
+pnpm worker   # job worker
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+After `pnpm build`, `pnpm server` also serves `dist`, so the client runs from :5050 alone. Queue dashboard (Bull Board): http://localhost:5050/admin/queues.
+
+## Architecture
+
+Three processes share one Redis: the vite client, the express/tRPC server, and the worker. The server owns job state and never runs work; the worker runs work and never touches state.
+
+```
+client ──mutation──▶ server ──add──▶ redis ──▶ worker
+   ▲                    ▲                        │
+   └───SSE stream───────┴──── QueueEvents ◀──────┘
+```
+
+- `greet` writes a job row first, then enqueues it, so no worker event can land on a missing row.
+- `QueueEvents` (active / progress / completed / failed) patch that row and emit onto one in-process `EventEmitter` in `bus.ts`, so listener count stays flat as clients come and go.
+- `subscribe` fans the bus out to every client, which upserts its cached list instead of refetching.
+- The stream pings every 2s and clients reconnect after 5s of silence; each reconnect invalidates the list, so a dropped stream self-heals without replay.
+- `db.ts` is an append-only JSONL log replayed into a `Map` at boot — last line per `jobId` wins.
+
+The worker fails ~25% of jobs on purpose to exercise the failure path (`FAILURE_RATE` in `src/tasks/worker.ts`).
+
+## Files
+
+| Path            | What                                  |
+| --------------- | ------------------------------------- |
+| `src/App.tsx`   | UI                                    |
+| `src/server.ts` | express host for tRPC + bull board    |
+| `src/trpc.ts`   | router (`list`, `greet`, `subscribe`) |
+| `src/bus.ts`    | event bus + queue-event wiring        |
+| `src/db.ts`     | job store (jsonl log + map)           |
+| `src/tasks/`    | queue, worker, redis connection       |
