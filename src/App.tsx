@@ -1,44 +1,28 @@
 import { useState } from "react";
 import { trpc } from "./trpc-client";
 import { useSubscription } from "@trpc/tanstack-react-query";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-
-type Job = {
-  jobId: string;
-  name: string;
-  status: "queued" | "running" | "completed" | "failed";
-  progress: number;
-  detail?: string;
-};
+import type { Job } from "./db";
 
 export default function App() {
   const [name, setName] = useState("world");
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const queryClient = useQueryClient();
+  const { data: jobs = [] } = useQuery(trpc.list.queryOptions());
 
   const subscription = useSubscription(
     trpc.subscribe.subscriptionOptions(undefined, {
-      onData(event) {
-        setJobs((prev) =>
-          prev.map((job) => {
-            if (job.jobId !== event.jobId) return job;
-            switch (event.status) {
-              case "progress":
-                return { ...job, status: "running", progress: event.progress };
-              case "completed":
-                return {
-                  ...job,
-                  status: "completed",
-                  progress: 100,
-                  detail: event.result,
-                };
-              case "failed":
-                return { ...job, status: "failed", detail: event.error };
-              default:
-                return job;
-            }
-          }),
-        );
+      onData(job) {
+        // Upsert into the cached list -- no invalidate, no refetch.
+        queryClient.setQueryData(trpc.list.queryKey(), (prev: Job[] = []) => [
+          ...new Map([...prev, job].map((j) => [j.jobId, j])).values(),
+        ]);
+      },
+      // A dropped stream never replays what it missed, so re-sync on every
+      // (re)connect. Also closes the gap between the list fetch and attach.
+      onConnectionStateChange(state) {
+        if (state.state === "pending")
+          queryClient.invalidateQueries({ queryKey: trpc.list.queryKey() });
       },
     }),
   );
@@ -47,34 +31,30 @@ export default function App() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const jobId = crypto.randomUUID();
-    setJobs((prev) => [
-      ...prev,
-      { jobId, name, status: "queued", progress: 0 },
-    ]);
-    mutation.mutateAsync({ name, jobId }).catch((err) => {
-      setJobs((prev) =>
-        prev.map((job) =>
-          job.jobId === jobId
-            ? { ...job, status: "failed", detail: err.message }
-            : job,
-        ),
-      );
-    });
+    mutation.mutate({ name });
   };
 
   return (
     <section className="flex flex-col items-center gap-8 h-svh justify-center">
-      <form className="flex gap-2 w-full max-w-lg" onSubmit={handleSubmit}>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="rounded bg-code px-3 py-2 text-heading outline-none focus:border-accent w-full"
-        />
-        <button className="rounded bg-accent px-3 py-2 text-heading">
-          Submit
-        </button>
-      </form>
+      <div className="w-full max-w-lg space-y-1">
+        <form className="flex gap-2" onSubmit={handleSubmit}>
+          <input
+            value={name}
+            required
+            onChange={(e) => setName(e.target.value)}
+            className="rounded bg-code px-3 py-2 text-heading outline-none focus:border-accent w-full"
+          />
+          <button
+            disabled={mutation.isPending}
+            className="rounded bg-accent px-3 py-2 text-heading disabled:opacity-50"
+          >
+            {mutation.isPending ? "Queueing" : "Submit"}
+          </button>
+        </form>
+        {mutation.error && (
+          <p className="text-sm text-red-400">{mutation.error.message}</p>
+        )}
+      </div>
 
       <div className="w-full max-w-lg space-y-1">
         <div className="flex justify-between items-baseline">

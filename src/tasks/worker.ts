@@ -13,6 +13,7 @@ new Worker(
   async (job: Job<{ job: string; name: string }>) => {
     switch (job.data.job) {
       case "greet": {
+        console.log(`Worker: greeting ${job.data.name}`);
         for (let step = 1; step <= STEPS; step++) {
           await sleep(200 + Math.random() * 400);
           if (Math.random() < FAILURE_RATE / STEPS) {
