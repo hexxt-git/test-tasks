@@ -1,5 +1,7 @@
 import { Queue, QueueEvents } from "bullmq";
 import { connection } from "./connection.ts";
 
-export const tasksQueue = new Queue("tasks", { connection });
-export const tasksQueueEvents = new QueueEvents("tasks", { connection });
+export const QUEUE_NAME = "tasks";
+
+export const tasksQueue = new Queue(QUEUE_NAME, { connection });
+export const tasksQueueEvents = new QueueEvents(QUEUE_NAME, { connection });

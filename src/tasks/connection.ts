@@ -1,11 +1,7 @@
-import IORedis from "ioredis";
+import { Redis } from "ioredis";
 
-const redisUrl = "redis://localhost:20824";
+const redisUrl = process.env.REDIS_URL ?? "redis://localhost:20824";
 
-if (!redisUrl) {
-  throw new Error("REDIS_URL is not defined");
-}
-
-export const connection = new IORedis(redisUrl, {
+export const connection = new Redis(redisUrl, {
   maxRetriesPerRequest: null,
 });

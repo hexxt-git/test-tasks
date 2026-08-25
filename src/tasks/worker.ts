@@ -1,20 +1,27 @@
-import { Worker } from "bullmq";
+import { Worker, type Job } from "bullmq";
 import { connection } from "./connection.ts";
+import { QUEUE_NAME } from "./queue.ts";
+
+/** Knob for exercising the failure path in the UI. */
+const FAILURE_RATE = 0.25;
+const STEPS = 5;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 new Worker(
-  "tasks",
-  async (job: { data: { job: string } & any }) => {
+  QUEUE_NAME,
+  async (job: Job<{ job: string; name: string }>) => {
     switch (job.data.job) {
-      case "greet":
-        console.log(`greeting ${job.data.name}`);
-        await new Promise((resolve) =>
-          setTimeout(resolve, Math.random() * 2000 + 1000),
-        );
-        if (Math.random() < 0.2) {
-          throw new Error("Random failure");
+      case "greet": {
+        for (let step = 1; step <= STEPS; step++) {
+          await sleep(200 + Math.random() * 400);
+          if (Math.random() < FAILURE_RATE / STEPS) {
+            throw new Error(`Failed while greeting ${job.data.name}`);
+          }
+          await job.updateProgress(Math.round((step / STEPS) * 100));
         }
-        console.log(`greeted ${job.data.name}`);
         return `Hello ${job.data.name}!`;
+      }
       default:
         throw new Error(`Unknown job type: ${job.data.job}`);
     }
