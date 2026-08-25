@@ -1,25 +1,64 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { trpc } from "./trpc-client";
 import { useSubscription } from "@trpc/tanstack-react-query";
+import { useMutation } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "motion/react";
 
 export default function App() {
   const [name, setName] = useState("world");
-  const { data } = useQuery(trpc.hello.queryOptions(name));
-  const subscription = useSubscription(
-    trpc.subscribe.subscriptionOptions(name, {
+  const [results, setResults] = useState<{ data: string; id: string }[]>([]);
+
+  useSubscription(
+    trpc.subscribe.subscriptionOptions(undefined, {
       onData(data) {
-        console.log("Received data:", data);
+        setResults((prevResults) => [
+          ...prevResults,
+          { data: data.join(", "), id: Math.random().toString() },
+        ]);
       },
     }),
   );
 
-  console.log("Subscription data:", subscription.data);
+  const mutation = useMutation(trpc.greet.mutationOptions());
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    mutation.mutateAsync(name).then((response) => {
+      console.log("Response from greet mutation:", response);
+    });
+  };
 
   return (
-    <section id="center">
-      <input value={name} onChange={(e) => setName(e.target.value)} />
-      <h1>{data}</h1>
+    <section className="flex flex-col items-center gap-8 h-svh justify-center">
+      <form className="flex gap-2 w-full max-w-lg" onSubmit={handleSubmit}>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="rounded bg-code px-3 py-2 text-heading outline-none focus:border-accent w-full"
+        />
+        <button className="rounded bg-accent px-3 py-2 text-heading">
+          Submit
+        </button>
+      </form>
+      <div className="w-full max-w-lg space-y-1">
+        <h2>results</h2>
+        <div className="flex flex-col gap-2 w-full bg-code/30 rounded p-2 h-60 overflow-y-auto">
+          <AnimatePresence mode="sync">
+            {results.toReversed().map((item) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                layout
+                className="rounded bg-code px-3 py-2 text-heading"
+              >
+                {item.data}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </div>
     </section>
   );
 }
