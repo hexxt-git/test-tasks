@@ -1,10 +1,11 @@
 import express from "express";
+import { fileURLToPath } from "node:url";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { ExpressAdapter } from "@bull-board/express";
 import { appRouter } from "./trpc.ts";
-import { tasksQueue } from "./tasks/queue.ts";
+import { tasksQueue } from "./queue.ts";
 
 const port = Number(process.env.PORT ?? 5050);
 
@@ -27,7 +28,9 @@ app.use(express.json({ limit: "100kb" }));
 app.use("/trpc", createExpressMiddleware({ router: appRouter }));
 app.use("/admin/queues", bullBoard.getRouter());
 // Serves the production build; harmless in dev, where vite serves the client.
-app.use(express.static("dist"));
+app.use(
+  express.static(fileURLToPath(new URL("../../web/dist", import.meta.url))),
+);
 
 app.listen(port, () =>
   console.log(

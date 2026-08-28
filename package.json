@@ -3,39 +3,19 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@11.20.0",
   "scripts": {
-    "dev": "vite",
-    "worker": "node --watch src/tasks/worker.ts",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview",
-    "server": "node --watch src/server.ts"
-  },
-  "dependencies": {
-    "@bull-board/api": "^9.4.0",
-    "@bull-board/express": "^9.4.0",
-    "@tanstack/react-query": "^5.102.2",
-    "@trpc/client": "^11.18.0",
-    "@trpc/server": "^11.18.0",
-    "@trpc/tanstack-react-query": "^11.18.0",
-    "bullmq": "^6.2.0",
-    "express": "^5.2.1",
-    "ioredis": "^6.0.0",
-    "motion": "^13.1.1",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "zod": "^4.4.3"
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=web",
+    "dev:server": "turbo run dev --filter=server",
+    "dev:worker": "turbo run dev --filter=worker",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "oxlint"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
-    "@types/express": "^5.0.6",
-    "@types/node": "^24.13.3",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.4",
     "oxlint": "^1.75.0",
-    "tailwindcss": "^4.3.3",
-    "typescript": "~6.0.2",
-    "vite": "^8.2.0"
+    "turbo": "^2.6.4",
+    "typescript": "~6.0.2"
   }
 }

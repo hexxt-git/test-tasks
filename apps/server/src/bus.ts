@@ -1,6 +1,6 @@
 import { EventEmitter, setMaxListeners } from "node:events";
 import { listJobs, updateJob, type Job } from "./db.ts";
-import { tasksQueue, tasksQueueEvents } from "./tasks/queue.ts";
+import { tasksQueue, tasksQueueEvents } from "./queue.ts";
 
 /** Fans queue events out to every subscriber, so QueueEvents keeps one listener each. */
 export const bus = new EventEmitter<{ job: [Job] }>();

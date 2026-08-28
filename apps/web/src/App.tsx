@@ -3,7 +3,7 @@ import { trpc } from "./trpc-client";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import type { Job } from "./db";
+import type { Job } from "server/db";
 
 export default function App() {
   const [name, setName] = useState("world");

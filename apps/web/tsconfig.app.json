@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "lib": ["ES2023", "DOM"],
+    // The server's router and Job types are imported type-only; their sources
+    // reference node builtins.
+    "types": ["vite/client", "node"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src"]
+}

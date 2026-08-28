@@ -3,7 +3,7 @@ import { on } from "node:events";
 import { z } from "zod";
 import { bus, patch } from "./bus.ts";
 import { createJob, listJobs, type Job } from "./db.ts";
-import { tasksQueue } from "./tasks/queue.ts";
+import { tasksQueue } from "./queue.ts";
 
 // A dropped SSE stream never errors, so the ping doubles as a liveness signal:
 // once it stops arriving the client reconnects on its own.
@@ -47,7 +47,7 @@ export const appRouter = t.router({
 
       await withTimeout(
         tasksQueue.add(
-          "greetJob",
+          "greet",
           { job: "greet", name: input.name },
           { jobId: job.jobId, removeOnComplete: 100, removeOnFail: 100 },
         ),
