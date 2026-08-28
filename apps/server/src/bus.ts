@@ -19,6 +19,12 @@ const percentOf = (data: unknown) =>
     ? Number(data.percent)
     : Number(data);
 
+// An unhandled "error" on an EventEmitter takes the process down, and redis
+// hiccups emit one; log it and let ioredis reconnect on its own.
+tasksQueueEvents.on("error", (err) =>
+  console.error("queue events:", err.message),
+);
+
 tasksQueueEvents.on("active", ({ jobId }) =>
   patch(jobId, { status: "running" }),
 );

@@ -13,7 +13,7 @@ const handlers: Record<JobName, (job: Job<JobData>) => Promise<string>> = {
   goodbye,
 };
 
-new Worker<JobData, string, JobName>(
+const worker = new Worker<JobData, string, JobName>(
   QUEUE_NAME,
   (job) => {
     console.log("starting job:", job.id);
@@ -25,3 +25,10 @@ new Worker<JobData, string, JobName>(
 );
 
 console.log("Worker started");
+
+for (const signal of ["SIGTERM", "SIGINT"] as const)
+  process.once(signal, async () => {
+    await worker.close();
+    // bullmq only closes connections it created; this one is ours.
+    await connection.quit();
+  });
