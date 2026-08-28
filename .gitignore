@@ -31,3 +31,6 @@ dist-ssr
 jobs.jsonl
 
 .turbo
+
+# Tool output samples for eyeballing
+tool-debug
