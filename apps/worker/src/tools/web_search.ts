@@ -7,7 +7,7 @@ import { logCall, logDone, logFail } from "./log.ts";
 export const webSearch = defineTool({
   name: "web_search",
   label: "Web Search",
-  description: `Search the web. Returns up to ${MAX_RESULTS} results as title, URL, and snippet. do not use as an oracle to answer arbitrary questions, use to find websites.`,
+  description: `Search the web. Returns up to ${MAX_RESULTS} results as title, URL and snippet. Finds pages to read; the snippets alone rarely answer a question, so read the promising ones.`,
 
   parameters: Type.Object({
     query: Type.String({
@@ -36,10 +36,9 @@ export const webSearch = defineTool({
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logFail(label, message);
-      return {
-        content: [{ type: "text" as const, text: `Search failed: ${message}` }],
-        details: { count: 0 },
-      };
+      // Throwing is what marks the result as an error; returned text reads as a
+      // search that ran and found nothing.
+      throw new Error(`Search failed for "${query}": ${message}`);
     }
   },
 });

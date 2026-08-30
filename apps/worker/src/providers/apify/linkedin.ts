@@ -1,164 +1,163 @@
 import {
+  ActorRunError,
+  compact,
   normalizeUsername,
   num,
-  type Profile,
-  type ProfilePost,
-  compact,
   runActor,
   str,
+  type Profile,
+  type ProfilePost,
 } from "./client.ts";
 
-const PROFILE_ACTOR = "harvestapi/linkedin-profile-scraper";
-const POSTS_ACTOR = "harvestapi/linkedin-profile-posts";
-const SCRAPER_MODE = "Profile details no email ($4 per 1k)";
+const PROFILE_ACTOR = "apimaestro/linkedin-profile-detail";
+const POSTS_ACTOR = "apimaestro/linkedin-profile-posts";
 
-/** Posts to pull. Billed per post at $0.002, so this is the cost lever here. */
 export const MAX_POSTS = 4;
 
-type RawProfile = Record<string, unknown> & {
-  location?: { linkedinText?: unknown };
-  experience?: RawJob[];
-  education?: RawSchool[];
-  currentPosition?: {
-    position?: unknown;
-    companyName?: unknown;
-    companyLinkedinUrl?: unknown;
-  }[];
-};
-type RawJob = Record<string, unknown> & { companyLogo?: { url?: unknown } };
-type RawSchool = Record<string, unknown> & { schoolLogo?: { url?: unknown } };
+/** Public identifier as it appears in a /in/<id> URL. */
+export const HANDLE = "^[A-Za-z0-9-]{3,100}$";
 
-type RawPost = Record<string, unknown> & {
-  engagement?: Record<string, unknown>;
-  postedAt?: Record<string, unknown>;
-  postImages?: { url?: unknown }[];
-  postVideo?: { thumbnailUrl?: unknown };
+type RawProfile = {
+  basic_info?: {
+    fullname?: string;
+    headline?: string;
+    public_identifier?: string;
+    profile_url?: string;
+    profile_picture_url?: string;
+    about?: string;
+    location?: { full?: string };
+    follower_count?: number;
+    connection_count?: number;
+    current_company?: string;
+    current_company_url?: string;
+    is_verified?: boolean;
+    open_to_work?: boolean;
+    is_creator?: boolean;
+    is_influencer?: boolean;
+    is_premium?: boolean;
+    is_top_voice?: boolean;
+    top_skills?: unknown;
+    created_timestamp?: number;
+  };
+  experience?: unknown[];
+  education?: unknown[];
+  featured?: unknown;
+  /** Present instead of a profile when the handle does not resolve. */
+  message?: string;
+};
+
+type RawPost = {
+  url?: string;
+  text?: string;
+  post_type?: string;
+  posted_at?: { date?: string; timestamp?: number };
+  stats?: { total_reactions?: number; comments?: number; reposts?: number };
+  media?: { type?: string; url?: string };
 };
 
 function toPost(post: RawPost): ProfilePost {
-  const engagement = post.engagement ?? {};
+  const timestamp = num(post.posted_at?.timestamp);
   return {
-    url: str(post.linkedinUrl),
-    thumbnail:
-      str(post.postImages?.[0]?.url) ?? str(post.postVideo?.thumbnailUrl),
-    caption: str(post.content),
-    likes: num(engagement.likes),
-    comments: num(engagement.comments),
-    views: null, // LinkedIn does not expose post views publicly.
-    postedAt: str(post.postedAt?.date),
+    url: str(post.url),
+    thumbnail: str(post.media?.url),
+    caption: str(post.text),
+    likes: num(post.stats?.total_reactions),
+    comments: num(post.stats?.comments),
+    views: null,
+    postedAt: timestamp ? new Date(timestamp).toISOString() : null,
     extras: compact({
-      shares: num(engagement.shares),
-      shareUrl: str(post.shareLinkedinUrl),
+      type: str(post.post_type),
+      reposts: num(post.stats?.reposts),
+      mediaType: str(post.media?.type),
     }),
   };
 }
 
 export async function getLinkedinProfile(username: string): Promise<Profile> {
   const handle = normalizeUsername(username);
-  const profileUrl = `https://www.linkedin.com/in/${handle}`;
 
-  // Posts come from a separate actor, and are best-effort: a profile with no
-  // posts is still a useful result, so a posts failure must not fail the lookup.
-  const [profileResult, postsResult] = await Promise.allSettled([
-    runActor<RawProfile>(
-      PROFILE_ACTOR,
-      { publicIdentifiers: [handle], profileScraperMode: SCRAPER_MODE },
-      1,
-    ),
-    runActor<RawPost>(
-      POSTS_ACTOR,
-      {
-        targetUrls: [profileUrl],
-        maxPosts: MAX_POSTS,
-        scrapeReactions: false, // like counts are already on engagement
-        scrapeComments: false,
-      },
-      MAX_POSTS,
-    ),
-  ]);
+  let raw: RawProfile[];
+  try {
+    raw = await runActor<RawProfile>(PROFILE_ACTOR, { username: handle }, 1);
+  } catch (cause) {
+    // An unknown handle aborts the run instead of failing it. Any other
+    // status is a real failure and must not be reported as "not found".
+    if (cause instanceof ActorRunError && cause.status === "ABORTED")
+      throw new Error(`no LinkedIn profile found for ${handle}`);
+    throw cause;
+  }
 
-  if (profileResult.status === "rejected") throw profileResult.reason;
-  const [profile] = profileResult.value;
+  const [profile] = raw;
   if (!profile) throw new Error(`no LinkedIn profile found for ${handle}`);
 
-  // The actor reports failures as a result item, not a failed run.
-  const error = str(profile.error);
-  if (error) throw new Error(error);
+  const info = profile.basic_info;
+  // A run that did reach SUCCEEDED still reports a miss as a result item.
+  if (!info)
+    throw new Error(
+      str(profile.message) ?? `no LinkedIn profile found for ${handle}`,
+    );
 
   // Guard against a body that is not the profile we asked for.
-  const identifier = str(profile.publicIdentifier);
-  if (!identifier)
-    throw new Error(`no LinkedIn profile found for ${handle}`);
+  const identifier = str(info.public_identifier);
+  if (!identifier) throw new Error(`no LinkedIn profile found for ${handle}`);
   if (identifier.toLowerCase() !== handle.toLowerCase())
     throw new Error(
       `asked for ${handle} but got ${identifier}; refusing the mismatch`,
     );
 
-  const name =
-    str(profile.name) ??
-    [str(profile.firstName), str(profile.lastName)].filter(Boolean).join(" ");
-  const role = profile.currentPosition?.[0];
-  const posts =
-    postsResult.status === "fulfilled"
-      ? postsResult.value.filter((post) => post.type === "post").map(toPost)
-      : [];
+  // Posts come from a second actor, only worth paying for once the profile is
+  // confirmed. A profile with no posts is still useful, so this is best-effort.
+  let posts: RawPost[] = [];
+  try {
+    posts = await runActor<RawPost>(
+      POSTS_ACTOR,
+      { username: identifier, limit: MAX_POSTS },
+      MAX_POSTS,
+    );
+  } catch (cause) {
+    console.warn(
+      `linkedin posts for ${handle} failed:`,
+      (cause as Error).message,
+    );
+  }
 
   return {
     platform: "linkedin",
     username: identifier,
-    name: name || null,
-    url: str(profile.linkedinUrl) ?? profileUrl,
-    image:
-      str((profile.profilePicture as { url?: unknown } | undefined)?.url) ??
-      str(profile.photo),
-    bio: str(profile.headline ?? profile.about),
-    verified: typeof profile.verified === "boolean" ? profile.verified : null,
-    followers: num(profile.followerCount ?? profile.followersCount),
-    following: num(profile.connectionsCount),
+    name: str(info.fullname),
+    url: str(info.profile_url) ?? `https://www.linkedin.com/in/${identifier}`,
+    image: str(info.profile_picture_url),
+    bio: str(info.about) ?? str(info.headline),
+    verified: info.is_verified ?? null,
+    followers: num(info.follower_count),
+    following: num(info.connection_count),
     postsCount: null,
-    links: Array.isArray(profile.websites)
-      ? (profile.websites as unknown[]).map(str).filter((x) => x !== null)
-      : [],
-    location: str(profile.location?.linkedinText),
-    category: null,
+    links: [],
+    location: str(info.location?.full),
+    category: str(info.headline),
     isPrivate: null,
-    role: role
+    role: info.current_company
       ? {
-          title: str(role.position),
-          company: str(role.companyName),
-          companyUrl: str(role.companyLinkedinUrl),
+          title: str(info.headline),
+          company: str(info.current_company),
+          companyUrl: str(info.current_company_url),
         }
       : null,
-    openToWork:
-      typeof profile.openToWork === "boolean" ? profile.openToWork : null,
-    hiring: typeof profile.hiring === "boolean" ? profile.hiring : null,
-    posts,
+    openToWork: info.open_to_work ?? null,
+    hiring: null,
+    posts: posts.slice(0, MAX_POSTS).map(toPost),
     extras: compact({
-      // Logos arrive as { url, sizes[] }; keep just the url.
-      experience: (profile.experience ?? []).map((job) => ({
-        ...job,
-        companyLogo: str(job.companyLogo?.url),
-      })),
-      education: (profile.education ?? []).map((school) => ({
-        ...school,
-        schoolLogo: str(school.schoolLogo?.url),
-      })),
-      skills: profile.skills,
-      certifications: profile.certifications,
-      languages: profile.languages,
-      publications: profile.publications,
-      patents: profile.patents,
-      courses: profile.courses,
-      projects: profile.projects,
-      volunteering: profile.volunteering,
-      honorsAndAwards: profile.honorsAndAwards,
-      organizations: profile.organizations,
-      causes: profile.causes,
-      recommendations: profile.receivedRecommendations,
-      influencer: profile.influencer,
-      creator: profile.creator,
-      premium: profile.premium,
-      registeredAt: str(profile.registeredAt),
+      experience: profile.experience,
+      education: profile.education,
+      featured: profile.featured,
+      topSkills: info.top_skills,
+      creator: info.is_creator,
+      influencer: info.is_influencer,
+      premium: info.is_premium,
+      topVoice: info.is_top_voice,
+      registeredAt: info.created_timestamp
+        ? new Date(info.created_timestamp).toISOString()
+        : null,
     }),
   };
 }

@@ -16,6 +16,9 @@ const REGION = "US";
 /** Posts to pull. The posts call is one $0.002 request regardless of count. */
 export const MAX_POSTS = 10;
 
+/** TikTok usernames: letters, digits, dots and underscores, up to 24. */
+export const HANDLE = "^@?[A-Za-z0-9._]{1,24}$";
+
 type TikTokUser = Record<string, unknown> & {
   avatar_larger?: { url_list?: unknown[] };
   avatar_168x168?: { url_list?: unknown[] };

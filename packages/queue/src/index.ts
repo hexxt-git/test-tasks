@@ -1,8 +1,10 @@
 export { connection } from "./connection.ts";
 export {
   QUEUE_NAME,
-  type GoodbyeJob,
-  type GreetJob,
   type JobData,
   type JobName,
+  type Progress,
+  type SearchJob,
+  type ToolCall,
+  type Turn,
 } from "./jobs.ts";

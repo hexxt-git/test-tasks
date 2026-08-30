@@ -16,6 +16,64 @@ export type ProfilePost = {
   extras: Extras;
 };
 
+/** A review left on a business by a customer. */
+export type BusinessReview = {
+  url: string | null;
+  rating: number | null;
+  text: string | null;
+  postedAt: string | null;
+  author: string | null;
+  /** How many reviews the author has written; a one-review account is noise. */
+  authorReviewCount: number | null;
+  helpful: number | null;
+  /** The owner's public response, the clearest sign they read their reviews. */
+  ownerReply: string | null;
+  photos: string[];
+};
+
+/** A business listing, looked up by its page URL. */
+export type Business = {
+  platform: "yelp";
+  id: string;
+  slug: string;
+  name: string | null;
+  url: string | null;
+  image: string | null;
+  rating: number | null;
+  reviewCount: number | null;
+  reviews: BusinessReview[];
+  extras: Extras;
+};
+
+/** Whoever wrote a post, as returned alongside a single-post lookup. */
+export type PostAuthor = {
+  username: string | null;
+  name: string | null;
+  image: string | null;
+  verified: boolean | null;
+};
+
+/** A reply or comment under a post. */
+export type PostReply = {
+  author: string | null;
+  body: string | null;
+  likes: number | null;
+  postedAt: string | null;
+  url: string | null;
+};
+
+/** A post fetched on its own by link or id, rather than through a profile. */
+export type Post = ProfilePost & {
+  platform: "reddit" | "x";
+  id: string;
+  /** Reddit posts have a title; X posts do not. */
+  title: string | null;
+  author: PostAuthor | null;
+  /** Subreddit the post lives in, or null off Reddit. */
+  community: string | null;
+  replies: PostReply[];
+};
+
 /** Current job, the main personalisation hook for outreach. */
 export type ProfileRole = {
   title: string | null;
@@ -24,7 +82,7 @@ export type ProfileRole = {
 };
 
 export type Profile = {
-  platform: "linkedin" | "instagram" | "tiktok";
+  platform: "linkedin" | "instagram" | "tiktok" | "reddit" | "x";
   username: string;
   name: string | null;
   url: string | null;
@@ -60,6 +118,17 @@ function getClient(): ApifyClient {
   return client;
 }
 
+/** An actor run that did not finish cleanly. Carries the status so callers can
+ * tell apart the ones their actor uses to signal something. */
+export class ActorRunError extends Error {
+  status: string;
+
+  constructor(actorId: string, status: string) {
+    super(`actor ${actorId} finished with status ${status}`);
+    this.status = status;
+  }
+}
+
 /** Run an actor to completion and return its dataset items. */
 export async function runActor<T extends Record<string, unknown>>(
   actorId: string,
@@ -68,8 +137,7 @@ export async function runActor<T extends Record<string, unknown>>(
 ): Promise<T[]> {
   // log: null stops the client redirecting actor logs onto our stdout.
   const run = await getClient().actor(actorId).call(input, { maxItems, log: null });
-  if (run.status !== "SUCCEEDED")
-    throw new Error(`actor ${actorId} finished with status ${run.status}`);
+  if (run.status !== "SUCCEEDED") throw new ActorRunError(actorId, run.status);
 
   const { items } = await getClient()
     .dataset<T>(run.defaultDatasetId)

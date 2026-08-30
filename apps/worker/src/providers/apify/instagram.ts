@@ -10,9 +10,11 @@ import {
 
 const ACTOR = "apify/instagram-scraper";
 
-
 /** Posts to pull. Billed per result; Instagram is the cheapest of the three. */
 export const MAX_POSTS = 10;
+
+/** Instagram usernames: letters, digits, dots and underscores, up to 30. */
+export const HANDLE = "^@?[A-Za-z0-9._]{1,30}$";
 
 type RawPost = Record<string, unknown>;
 type RawProfile = Record<string, unknown> & {
@@ -75,7 +77,10 @@ export async function getInstagramProfile(username: string): Promise<Profile> {
     followers: num(profile.followersCount),
     following: num(profile.followsCount),
     postsCount: num(profile.postsCount),
-    links: profile.externalUrls?.map((link) => str(link.url)).filter((x) => x !== null) ??
+    links:
+      profile.externalUrls
+        ?.map((link) => str(link.url))
+        .filter((x) => x !== null) ??
       [str(profile.externalUrl)].filter((x) => x !== null),
     location: null,
     category: str(profile.businessCategoryName),

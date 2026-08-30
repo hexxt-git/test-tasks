@@ -31,14 +31,14 @@ const withTimeout = <T>(work: Promise<T>, message: string) =>
 export const appRouter = t.router({
   list: t.procedure.query(() => listJobs()),
 
-  greet: t.procedure
-    .input(z.object({ name: z.string().min(1).max(100) }))
+  search: t.procedure
+    .input(z.object({ question: z.string().min(1).max(1000) }))
     .mutation(async ({ input }) => {
       const job: Job = {
         jobId: crypto.randomUUID(),
-        name: input.name,
+        question: input.question,
         status: "queued",
-        progress: 0,
+        turns: [],
       };
 
       // Stored before it is queued, so no worker event lands on a missing row.
@@ -47,8 +47,8 @@ export const appRouter = t.router({
 
       await withTimeout(
         tasksQueue.add(
-          "greet",
-          { job: "greet", name: input.name },
+          "search",
+          { job: "search", question: input.question },
           { jobId: job.jobId, removeOnComplete: 100, removeOnFail: 100 },
         ),
         "Queue unreachable",

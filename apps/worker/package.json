@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/worker.ts",
-    "start": "node src/worker.ts",
+    "dev": "INSTANT_EXIT=1 node --watch --env-file=../../.env src/worker.ts",
+    "start": "node --env-file=../../.env src/worker.ts",
     "typecheck": "tsc -b"
   },
   "dependencies": {

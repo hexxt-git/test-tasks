@@ -1,5 +1,6 @@
 import { EventEmitter, setMaxListeners } from "node:events";
-import { listJobs, updateJob, type Job } from "./db.ts";
+import { getJob, listJobs, updateJob, type Job } from "./db.ts";
+import type { Progress, Turn } from "@repo/queue";
 import { tasksQueue, tasksQueueEvents } from "./queue.ts";
 
 /** Fans queue events out to every subscriber, so QueueEvents keeps one listener each. */
@@ -13,11 +14,10 @@ export const patch = (jobId: string, fields: Partial<Job>) => {
   if (job) bus.emit("job", job);
 };
 
-/** The worker reports `{ percent, ... }`; older jobs may carry a bare number. */
-const percentOf = (data: unknown) =>
-  typeof data === "object" && data !== null && "percent" in data
-    ? Number(data.percent)
-    : Number(data);
+const turnOf = (data: unknown): Turn | undefined =>
+  typeof data === "object" && data !== null && "turn" in data
+    ? (data as Progress).turn
+    : undefined;
 
 // An unhandled "error" on an EventEmitter takes the process down, and redis
 // hiccups emit one; log it and let ioredis reconnect on its own.
@@ -28,13 +28,21 @@ tasksQueueEvents.on("error", (err) =>
 tasksQueueEvents.on("active", ({ jobId }) =>
   patch(jobId, { status: "running" }),
 );
-tasksQueueEvents.on("progress", ({ jobId, data }) =>
-  patch(jobId, { status: "running", progress: percentOf(data) }),
-);
+tasksQueueEvents.on("progress", ({ jobId, data }) => {
+  const turn = turnOf(data);
+  const turns = getJob(jobId)?.turns ?? [];
+  patch(jobId, {
+    status: "running",
+    // Redis replays the last progress value on reconnect, so drop a repeat.
+    turns:
+      turn && !turns.some((t) => t.index === turn.index)
+        ? [...turns, turn]
+        : turns,
+  });
+});
 tasksQueueEvents.on("completed", ({ jobId, returnvalue }) =>
   patch(jobId, {
     status: "completed",
-    progress: 100,
     detail: String(returnvalue),
   }),
 );
@@ -64,7 +72,6 @@ const reconcile = async () => {
     if (state === "completed") {
       patch(row.jobId, {
         status: "completed",
-        progress: 100,
         detail: String(job.returnvalue),
       });
     } else if (state === "failed") {

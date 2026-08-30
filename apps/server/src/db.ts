@@ -1,10 +1,13 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import type { Turn } from "@repo/queue";
+
+export type { ToolCall, Turn } from "@repo/queue";
 
 export type Job = {
   jobId: string;
-  name: string;
+  question: string;
   status: "queued" | "running" | "completed" | "failed";
-  progress: number;
+  turns: Turn[];
   detail?: string;
 };
 
@@ -27,6 +30,8 @@ const write = (job: Job) => {
 };
 
 export const listJobs = () => [...jobs.values()];
+
+export const getJob = (jobId: string) => jobs.get(jobId);
 
 export const createJob = (job: Job) => write(job);
 
