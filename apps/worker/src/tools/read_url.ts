@@ -7,14 +7,14 @@ import {
   MAX_CHARS,
   readArticle,
   readStructured,
-} from "../providers/readability.ts";
+} from "../providers/web-page.ts";
 import { logCall, logDone, logFail } from "./log.ts";
 
 export const readUrl = defineTool({
   name: "read_url",
   label: "Read URL",
   description:
-    "Fetch a web page and return its main article text, without navigation or ads. For JSON, XML or RSS endpoints set structured_content, which returns the document as served. If a URL is blocked, find a different source rather than another URL on the same site.",
+    "Fetch a web page and return its main content as Markdown, without navigation or ads. For JSON, XML or RSS endpoints set structured_content, which returns the document as served. If a URL is blocked, find a different source rather than another URL on the same site.",
 
   parameters: Type.Object({
     url: Type.String({

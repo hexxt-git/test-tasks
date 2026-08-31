@@ -1,5 +1,5 @@
-import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom";
+import { Defuddle } from "defuddle/node";
+import { parseHTML } from "linkedom";
 import { assertSafeUrl } from "./url-guard.ts";
 
 const MAX_REDIRECTS = 5;
@@ -71,17 +71,22 @@ export async function readArticle(url: string): Promise<Article> {
       `${contentType.split(";")[0] || "unknown content-type"} is not a web page. Call again with structured_content: true to read JSON, XML or feeds as they are served.`,
     );
 
-  // Parse against the final URL so Readability resolves relative links.
-  const dom = new JSDOM(await response.text(), { url: finalUrl.href });
-  const article = new Readability(dom.window.document).parse();
-  if (!article?.textContent?.trim())
+  const { document } = parseHTML(await response.text());
+  const article = await Defuddle(document, finalUrl.href, {
+    markdown: true,
+    // Extraction must stay within the page fetched and checked above. Defuddle's
+    // async fallbacks may otherwise call platform-specific third-party APIs.
+    useAsync: false,
+  });
+  const text = article.content.trim();
+  if (!text)
     throw new Error("no readable article content found");
 
   return {
-    title: article.title ?? null,
-    byline: article.byline ?? null,
-    siteName: article.siteName ?? null,
-    text: article.textContent.trim(),
+    title: article.title || null,
+    byline: article.author || null,
+    siteName: article.site || null,
+    text,
   };
 }
 

@@ -153,7 +153,7 @@ Per call, on the free tier. `read_url` is the only free tool.
 | Tool                | Actor                                           | Cost                 |
 | ------------------- | ----------------------------------------------- | -------------------- |
 | `web_search`        | `apify/google-search-scraper`                   | $0.0055              |
-| `read_url`          | direct fetch + readability                      | free                 |
+| `read_url`          | direct fetch + Defuddle                         | free                 |
 | `linkedin_profile`  | `apimaestro/linkedin-profile-detail` + `-posts` | $0.025 (4 posts)     |
 | `instagram_profile` | `apify/instagram-scraper`                       | $0.0027              |
 | `tiktok_profile`    | `scraptik/tiktok-api` (2 runs)                  | $0.0040              |
