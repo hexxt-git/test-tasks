@@ -3,8 +3,9 @@ export const QUEUE_NAME = "tasks";
 /** The job kinds the worker knows how to run. */
 
 export type SearchJob = { job: "search"; question: string };
+export type AuditJob = { job: "site-audit"; url: string };
 
-export type JobData = SearchJob;
+export type JobData = SearchJob | AuditJob;
 export type JobName = JobData["job"];
 
 export type ToolCall = {
@@ -23,5 +24,13 @@ export type Turn = {
   tools: ToolCall[];
 };
 
-/** Progress payload the worker reports once per finished turn. */
-export type Progress = { turn: Turn };
+export type AuditReport = {
+  url: string;
+  /** Deterministic measurements, rendered as JSON. */
+  checks: Record<string, unknown>;
+  /** The LLM pass; null until one is wired up. */
+  review: string | null;
+};
+
+/** Progress payload the worker reports: once per LLM turn, or per audit stage. */
+export type Progress = { turn: Turn } | { report: AuditReport };

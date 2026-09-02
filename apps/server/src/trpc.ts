@@ -4,6 +4,7 @@ import { z } from "zod";
 import { bus, patch } from "./bus.ts";
 import { createJob, listJobs, type Job } from "./db.ts";
 import { tasksQueue } from "./queue.ts";
+import type { JobData } from "@repo/queue";
 
 // A dropped SSE stream never errors, so the ping doubles as a liveness signal:
 // once it stops arriving the client reconnects on its own.
@@ -28,36 +29,47 @@ const withTimeout = <T>(work: Promise<T>, message: string) =>
     ),
   ]);
 
+/** Rows are stored before they are queued, so no worker event lands on a missing row. */
+const enqueue = async (data: JobData, label: string) => {
+  const job: Job = {
+    jobId: crypto.randomUUID(),
+    kind: data.job,
+    question: label,
+    status: "queued",
+    turns: [],
+  };
+
+  createJob(job);
+  bus.emit("job", job);
+
+  await withTimeout(
+    tasksQueue.add(data.job, data, {
+      jobId: job.jobId,
+      removeOnComplete: 100,
+      removeOnFail: 100,
+    }),
+    "Queue unreachable",
+  ).catch((err: Error) => {
+    // Otherwise the row sits at "queued" forever with nothing queued.
+    patch(job.jobId, { status: "failed", detail: err.message });
+    throw err;
+  });
+};
+
 export const appRouter = t.router({
   list: t.procedure.query(() => listJobs()),
 
   search: t.procedure
     .input(z.object({ question: z.string().min(1).max(1000) }))
-    .mutation(async ({ input }) => {
-      const job: Job = {
-        jobId: crypto.randomUUID(),
-        question: input.question,
-        status: "queued",
-        turns: [],
-      };
+    .mutation(({ input }) =>
+      enqueue({ job: "search", question: input.question }, input.question),
+    ),
 
-      // Stored before it is queued, so no worker event lands on a missing row.
-      createJob(job);
-      bus.emit("job", job);
-
-      await withTimeout(
-        tasksQueue.add(
-          "search",
-          { job: "search", question: input.question },
-          { jobId: job.jobId, removeOnComplete: 100, removeOnFail: 100 },
-        ),
-        "Queue unreachable",
-      ).catch((err: Error) => {
-        // Otherwise the row sits at "queued" forever with nothing queued.
-        patch(job.jobId, { status: "failed", detail: err.message });
-        throw err;
-      });
-    }),
+  audit: t.procedure
+    .input(z.object({ url: z.url().max(2000) }))
+    .mutation(({ input }) =>
+      enqueue({ job: "site-audit", url: input.url }, input.url),
+    ),
 
   // Every job's events, for every client; there is nothing per-client to filter.
   subscribe: t.procedure.subscription(async function* ({ signal }) {

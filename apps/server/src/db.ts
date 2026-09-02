@@ -1,13 +1,16 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
-import type { Turn } from "@repo/queue";
+import type { AuditReport, JobName, Turn } from "@repo/queue";
 
-export type { ToolCall, Turn } from "@repo/queue";
+export type { AuditReport, ToolCall, Turn } from "@repo/queue";
 
 export type Job = {
   jobId: string;
+  kind: JobName;
+  /** The job's input: a research question, or the audited URL. */
   question: string;
   status: "queued" | "running" | "completed" | "failed";
   turns: Turn[];
+  report?: AuditReport;
   detail?: string;
 };
 
@@ -19,7 +22,8 @@ if (existsSync(FILE)) {
   for (const line of readFileSync(FILE, "utf8").split("\n")) {
     if (!line) continue;
     const job = JSON.parse(line) as Job;
-    jobs.set(job.jobId, job);
+    // Rows written before audits existed carry no kind.
+    jobs.set(job.jobId, { ...job, kind: job.kind ?? "search" });
   }
 }
 

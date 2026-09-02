@@ -34,3 +34,4 @@ jobs.jsonl
 
 # Tool output samples for eyeballing
 tool-debug
+.scratch

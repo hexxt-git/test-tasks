@@ -124,6 +124,11 @@ function JobRow({ job }: { job: Job }) {
             className="overflow-hidden"
           >
             <div className="space-y-3 pt-3 pl-4">
+              {job.report && (
+                <pre className="max-h-96 overflow-auto rounded bg-bg/60 p-2 font-mono text-xs">
+                  {JSON.stringify(job.report, null, 2)}
+                </pre>
+              )}
               {job.turns.map((turn) => (
                 <TurnView key={turn.index} turn={turn} />
               ))}
@@ -146,6 +151,7 @@ function JobRow({ job }: { job: Job }) {
 }
 
 export default function App() {
+  const [kind, setKind] = useState<Job["kind"]>("search");
   const [question, setQuestion] = useState("");
   const queryClient = useQueryClient();
   const { data: jobs = [] } = useQuery(trpc.list.queryOptions());
@@ -167,22 +173,38 @@ export default function App() {
     }),
   );
 
-  const mutation = useMutation(trpc.search.mutationOptions());
+  const search = useMutation(trpc.search.mutationOptions());
+  const audit = useMutation(trpc.audit.mutationOptions());
+  const mutation = kind === "search" ? search : audit;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    mutation.mutate({ question });
+    if (kind === "search") search.mutate({ question });
+    else audit.mutate({ url: question });
     setQuestion("");
   };
 
   return (
     <section className="mx-auto flex h-svh max-w-2xl flex-col justify-center gap-8 p-4">
       <div className="space-y-1">
+        <div className="flex gap-1">
+          {(["search", "site-audit"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setKind(tab)}
+              className={`rounded px-3 py-1 text-sm ${tab === kind ? "bg-accent text-heading" : "bg-code"}`}
+            >
+              {tab === "search" ? "Search" : "Audit"}
+            </button>
+          ))}
+        </div>
         <form className="flex gap-2" onSubmit={handleSubmit}>
           <input
             value={question}
             required
-            placeholder="ask a research question"
+            placeholder={
+              kind === "search" ? "ask a research question" : "https://example.com"
+            }
             onChange={(e) => setQuestion(e.target.value)}
             className="w-full rounded bg-code px-3 py-2 text-heading outline-none focus:border-accent"
           />
@@ -190,7 +212,7 @@ export default function App() {
             disabled={mutation.isPending}
             className="rounded bg-accent px-3 py-2 text-heading disabled:opacity-50"
           >
-            {mutation.isPending ? "Queueing" : "Search"}
+            {mutation.isPending ? "Queueing" : kind === "search" ? "Search" : "Audit"}
           </button>
         </form>
         {mutation.error && (
@@ -200,14 +222,17 @@ export default function App() {
 
       <div className="space-y-1">
         <div className="flex items-baseline justify-between">
-          <h2>searches</h2>
+          <h2>{kind === "search" ? "searches" : "audits"}</h2>
           <span className="text-xs opacity-60">{subscription.status}</span>
         </div>
         <div className="flex h-[32rem] w-full flex-col gap-2 overflow-y-auto rounded bg-code/30 p-2">
           <AnimatePresence mode="sync">
-            {jobs.toReversed().map((job) => (
-              <JobRow key={job.jobId} job={job} />
-            ))}
+            {jobs
+              .filter((job) => job.kind === kind)
+              .toReversed()
+              .map((job) => (
+                <JobRow key={job.jobId} job={job} />
+              ))}
           </AnimatePresence>
         </div>
       </div>

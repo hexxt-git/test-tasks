@@ -6,9 +6,15 @@ import {
   type JobName,
 } from "@repo/queue";
 import { search } from "./jobs/search.ts";
+import { siteAudit } from "./jobs/site-audit.ts";
 
-const handlers: Record<JobName, (job: Job<JobData>) => Promise<string>> = {
+type Handlers = {
+  [K in JobName]: (job: Job<Extract<JobData, { job: K }>>) => Promise<string>;
+};
+
+const handlers: Handlers = {
   search,
+  "site-audit": siteAudit,
 };
 
 /**
@@ -22,7 +28,10 @@ const worker = new Worker<JobData, string, JobName>(
   QUEUE_NAME,
   (job) => {
     console.log("starting job:", job.id);
-    const handler = handlers[job.data.job];
+    // The union is narrowed by the key, which the index signature cannot express.
+    const handler = handlers[job.data.job] as (
+      job: Job<JobData>,
+    ) => Promise<string>;
     if (!handler) throw new Error(`Unknown job type: ${job.data.job}`);
     return handler(job);
   },
