@@ -6,7 +6,7 @@ React 19 + Vite + Tailwind, tRPC on Express, TanStack Query, BullMQ on Redis.
 
 ## Run
 
-Needs Redis on `redis://localhost:20824` (override with `REDIS_URL`) and a root `.env` (see `.env.example`) holding `DEEPSEEK_API_KEY` and `APIFY_TOKEN`; the worker loads it with `node --env-file`.
+Needs Redis on `redis://localhost:20824` (override with `REDIS_URL`) and a root `.env` (see `.env.example`) holding `DEEPSEEK_API_KEY` and `APIFY_TOKEN`, plus an optional `SEARXNG_ENDPOINT` (and `SEARXNG_API_KEY` if the instance is behind auth) that `web_search` tries before the paid Apify SERP actor (`docker compose -f searxng/compose.yml up -d` runs one locally on `http://localhost:8080`); the worker loads it with `node --env-file`.
 
 ```sh
 pnpm install

@@ -1,7 +1,6 @@
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
-import { serpSearch } from "../providers/apify/serp.ts";
-import { formatResults, MAX_RESULTS } from "../providers/search.ts";
+import { formatResults, search, MAX_RESULTS } from "../providers/search.ts";
 import { logCall, logDone, logFail } from "./log.ts";
 
 export const webSearch = defineTool({
@@ -20,7 +19,7 @@ export const webSearch = defineTool({
     logCall(label, `"${query.replaceAll(/\s+/g, " ")}"`);
 
     try {
-      const results = await serpSearch(query, MAX_RESULTS);
+      const results = await search(query, MAX_RESULTS);
       logDone(
         label,
         results.length

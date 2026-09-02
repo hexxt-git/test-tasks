@@ -1,0 +1,28 @@
+services:
+  tor:
+    build: ./tor
+    restart: unless-stopped
+    ports:
+      # Loopback only, for checking the exit IPs by hand.
+      - "127.0.0.1:9050-9054:9050-9054"
+
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    depends_on: [tor]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8080/
+      SEARXNG_SECRET: local-instance-only
+      GRANIAN_LOG_ACCESS_ENABLED: "true"
+      GRANIAN_LOG_ACCESS_FMT: '%(addr)s "%(method)s %(path)s?%(query_string)s" %(status)d %(dt_ms).0fms'
+    # One line per request, rotated by docker; 10 MB ceiling, then the oldest
+    # chunk is dropped.
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"

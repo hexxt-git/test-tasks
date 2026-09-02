@@ -1,0 +1,36 @@
+use_default_settings:
+  engines:
+    keep_only:
+      - google cse
+      - bing
+
+server:
+  # Open instance: no rate limiting, no bot detection.
+  limiter: false
+  public_instance: false
+
+search:
+  # The worker asks for format=json; the default build only serves html.
+  formats:
+    - html
+    - json
+
+outgoing:
+  using_tor_proxy: true
+  # Tor is slow enough that the stock 3s timeout fails most engines.
+  request_timeout: 15.0
+  max_request_timeout: 20.0
+  proxies:
+    all://:
+      - socks5h://tor:9050
+      - socks5h://tor:9051
+      - socks5h://tor:9052
+      - socks5h://tor:9053
+      - socks5h://tor:9054
+
+engines:
+  # keep_only leaves them in the list; both ship disabled, so switch them on.
+  - name: google cse
+    disabled: false
+  - name: bing
+    disabled: false

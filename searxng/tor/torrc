@@ -1,0 +1,17 @@
+# Five listeners. Tor isolates streams from different SocksPorts onto different
+# circuits, so each port is a separate exit IP.
+SocksPort 0.0.0.0:9050
+SocksPort 0.0.0.0:9051
+SocksPort 0.0.0.0:9052
+SocksPort 0.0.0.0:9053
+SocksPort 0.0.0.0:9054
+SocksPolicy accept 172.16.0.0/12
+SocksPolicy accept 127.0.0.0/8
+SocksPolicy reject *
+
+# Retire a circuit an hour after first use; the next stream builds a fresh one
+# through a new exit.
+MaxCircuitDirtiness 3600
+
+DataDirectory /var/lib/tor
+Log notice stdout

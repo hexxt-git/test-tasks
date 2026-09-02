@@ -60,6 +60,47 @@ Things that will bite you:
   draining, so `--watch` restarts do not block for a whole agent run. It also
   raises `maxStalledCount`, because every restart looks like a stall.
 
+## The SearXNG instance
+
+`searxng/` is a two-container compose stack behind `web_search`: SearXNG plus a
+Tor container that carries all of its outgoing traffic.
+
+```
+docker compose -f searxng/compose.yml up -d
+```
+
+- **Five SocksPorts, 9050-9054, in one tor container.** Tor isolates streams
+  from different SocksPorts onto different circuits, so the five ports are five
+  exit IPs at any moment. SearXNG cycles the list in `outgoing.proxies`
+  round-robin, so consecutive engine requests leave from different exits.
+- **`MaxCircuitDirtiness 3600`** retires each circuit an hour after first use;
+  the next stream through that port builds a fresh one, so the five exit IPs
+  rotate hourly. Check them with
+  `curl --socks5-hostname 127.0.0.1:9050 https://check.torproject.org/api/ip`.
+- **Open and unlimited by choice.** SearXNG has no API key or basic auth of its
+  own -- only the limiter's IP allow/blocklists -- and it is published on
+  `0.0.0.0:8080` with `limiter: false`, so anything that can reach the host can
+  search through it, unthrottled. The tor SocksPorts stay on `127.0.0.1`; an
+  open SOCKS proxy is a different kind of exposure. `SEARXNG_API_KEY` is still
+  supported by the provider (sent as `Authorization: Bearer`) for a hosted
+  instance behind a proxy that checks one; empty for this stack.
+- **Access log.** `GRANIAN_LOG_ACCESS_ENABLED` gives one line per request,
+  query string included, capped by docker's own rotation (`max-size: 5m`,
+  `max-file: 2`, so 10 MB and then the oldest chunk is dropped -- nothing to
+  prune by hand). Counting what the instance actually served:
+  `docker compose -f searxng/compose.yml logs searxng | grep -c '"GET /search'`.
+- **`search.formats` must include `json`** and `limiter` must be off, or the
+  worker's `format=json` request gets a 403.
+- **Only `google cse` and `bing` are enabled**, via `use_default_settings.engines.keep_only`;
+  both ship disabled in the defaults, so `engines:` switches them back on. The
+  `google_cse` engine needs no API key -- it uses a public CX and a token it
+  fetches from `google.com/cse/cse.js`. Every other engine is dropped because
+  most of them refuse Tor exits: Brave, DuckDuckGo and Startpage answered
+  `too many requests` / `access denied` / `CAPTCHA` on a live run. These two do
+  not, but a Tor exit can still get blocked -- which is why an empty SearXNG
+  response falls through to the paid actor rather than being reported as
+  "no results".
+
 ## Choosing a provider
 
 Every tool is backed by an Apify actor. Picking the actor is the hard part; the
@@ -152,7 +193,7 @@ Per call, on the free tier. `read_url` is the only free tool.
 
 | Tool                | Actor                                           | Cost                 |
 | ------------------- | ----------------------------------------------- | -------------------- |
-| `web_search`        | `apify/google-search-scraper`                   | $0.0055              |
+| `web_search`        | SearXNG, else `apify/google-search-scraper`     | free, else $0.0055   |
 | `read_url`          | direct fetch + Defuddle                         | free                 |
 | `linkedin_profile`  | `apimaestro/linkedin-profile-detail` + `-posts` | $0.025 (4 posts)     |
 | `instagram_profile` | `apify/instagram-scraper`                       | $0.0027              |
