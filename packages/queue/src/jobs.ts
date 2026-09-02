@@ -2,10 +2,10 @@ export const QUEUE_NAME = "tasks";
 
 /** The job kinds the worker knows how to run. */
 
-export type SearchJob = { job: "search"; question: string };
+export type ResearchJob = { job: "research"; question: string };
 export type AuditJob = { job: "site-audit"; url: string };
 
-export type JobData = SearchJob | AuditJob;
+export type JobData = ResearchJob | AuditJob;
 export type JobName = JobData["job"];
 
 export type ToolCall = {

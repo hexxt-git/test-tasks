@@ -5,7 +5,7 @@ import {
   type JobData,
   type JobName,
 } from "@repo/queue";
-import { search } from "./jobs/search.ts";
+import { research } from "./jobs/research.ts";
 import { siteAudit } from "./jobs/site-audit.ts";
 
 type Handlers = {
@@ -13,7 +13,7 @@ type Handlers = {
 };
 
 const handlers: Handlers = {
-  search,
+  research,
   "site-audit": siteAudit,
 };
 

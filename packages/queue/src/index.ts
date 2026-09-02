@@ -6,7 +6,7 @@ export {
   type JobData,
   type JobName,
   type Progress,
-  type SearchJob,
+  type ResearchJob,
   type ToolCall,
   type Turn,
 } from "./jobs.ts";

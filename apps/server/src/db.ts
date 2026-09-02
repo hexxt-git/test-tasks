@@ -23,7 +23,7 @@ if (existsSync(FILE)) {
     if (!line) continue;
     const job = JSON.parse(line) as Job;
     // Rows written before audits existed carry no kind.
-    jobs.set(job.jobId, { ...job, kind: job.kind ?? "search" });
+    jobs.set(job.jobId, { ...job, kind: job.kind ?? "research" });
   }
 }
 

@@ -59,10 +59,10 @@ const enqueue = async (data: JobData, label: string) => {
 export const appRouter = t.router({
   list: t.procedure.query(() => listJobs()),
 
-  search: t.procedure
+  research: t.procedure
     .input(z.object({ question: z.string().min(1).max(1000) }))
     .mutation(({ input }) =>
-      enqueue({ job: "search", question: input.question }, input.question),
+      enqueue({ job: "research", question: input.question }, input.question),
     ),
 
   audit: t.procedure

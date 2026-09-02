@@ -151,7 +151,7 @@ function JobRow({ job }: { job: Job }) {
 }
 
 export default function App() {
-  const [kind, setKind] = useState<Job["kind"]>("search");
+  const [kind, setKind] = useState<Job["kind"]>("research");
   const [question, setQuestion] = useState("");
   const queryClient = useQueryClient();
   const { data: jobs = [] } = useQuery(trpc.list.queryOptions());
@@ -173,13 +173,13 @@ export default function App() {
     }),
   );
 
-  const search = useMutation(trpc.search.mutationOptions());
+  const research = useMutation(trpc.research.mutationOptions());
   const audit = useMutation(trpc.audit.mutationOptions());
-  const mutation = kind === "search" ? search : audit;
+  const mutation = kind === "research" ? research : audit;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (kind === "search") search.mutate({ question });
+    if (kind === "research") research.mutate({ question });
     else audit.mutate({ url: question });
     setQuestion("");
   };
@@ -188,13 +188,13 @@ export default function App() {
     <section className="mx-auto flex h-svh max-w-2xl flex-col justify-center gap-8 p-4">
       <div className="space-y-1">
         <div className="flex gap-1">
-          {(["search", "site-audit"] as const).map((tab) => (
+          {(["research", "site-audit"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setKind(tab)}
               className={`rounded px-3 py-1 text-sm ${tab === kind ? "bg-accent text-heading" : "bg-code"}`}
             >
-              {tab === "search" ? "Search" : "Audit"}
+              {tab === "research" ? "Research" : "Audit"}
             </button>
           ))}
         </div>
@@ -203,7 +203,7 @@ export default function App() {
             value={question}
             required
             placeholder={
-              kind === "search" ? "ask a research question" : "https://example.com"
+              kind === "research" ? "ask a research question" : "https://example.com"
             }
             onChange={(e) => setQuestion(e.target.value)}
             className="w-full rounded bg-code px-3 py-2 text-heading outline-none focus:border-accent"
@@ -212,7 +212,7 @@ export default function App() {
             disabled={mutation.isPending}
             className="rounded bg-accent px-3 py-2 text-heading disabled:opacity-50"
           >
-            {mutation.isPending ? "Queueing" : kind === "search" ? "Search" : "Audit"}
+            {mutation.isPending ? "Queueing" : kind === "research" ? "Research" : "Audit"}
           </button>
         </form>
         {mutation.error && (
@@ -222,7 +222,7 @@ export default function App() {
 
       <div className="space-y-1">
         <div className="flex items-baseline justify-between">
-          <h2>{kind === "search" ? "searches" : "audits"}</h2>
+          <h2>{kind === "research" ? "research" : "audits"}</h2>
           <span className="text-xs opacity-60">{subscription.status}</span>
         </div>
         <div className="flex h-[32rem] w-full flex-col gap-2 overflow-y-auto rounded bg-code/30 p-2">

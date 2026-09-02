@@ -1,5 +1,5 @@
 import type { Job as QueueJob } from "bullmq";
-import type { SearchJob, Turn } from "@repo/queue";
+import type { ResearchJob, Turn } from "@repo/queue";
 import {
   createAgentSession,
   DefaultResourceLoader,
@@ -70,7 +70,7 @@ const joinText = (blocks: { type: string; text?: string }[]) =>
     .map((block) => block.text)
     .join("");
 
-export const search = async (job: QueueJob<SearchJob>) => {
+export const research = async (job: QueueJob<ResearchJob>) => {
   const resourceLoader = new DefaultResourceLoader({
     cwd: process.cwd(),
     agentDir: getAgentDir(),
