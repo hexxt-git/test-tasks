@@ -82,7 +82,14 @@ export type ProfileRole = {
 };
 
 export type Profile = {
-  platform: "linkedin" | "instagram" | "tiktok" | "reddit" | "x";
+  platform:
+    | "linkedin"
+    /** A LinkedIn company page, not a member. */
+    | "linkedin_company"
+    | "instagram"
+    | "tiktok"
+    | "reddit"
+    | "x";
   username: string;
   name: string | null;
   url: string | null;

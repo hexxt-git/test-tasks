@@ -12,6 +12,7 @@ import { readUrl } from "../tools/read_url.ts";
 import { redditPost, xPost } from "../tools/social_post.ts";
 import {
   instagramProfile,
+  linkedinCompany,
   linkedinProfile,
   redditProfile,
   tiktokProfile,
@@ -31,12 +32,13 @@ make sure to never confuse two separate businesses or locations even if they hav
 
 a link to reddit, x, linkedin, instagram or tiktok is read with that platform's post or profile tool, never with read_url; read_url is for ordinary web pages. find those links with web_search first.
 
-the profile tools take an exact handle, they cannot search. never guess or invent a handle, and never try variations of a name to see which one sticks. to find someone's profile, search the web for it (for example: site:linkedin.com/in "their name" company) and take the handle out of the profile url in the results. only then call the profile tool. if search does not turn up a profile url, say the profile was not found rather than guessing.`;
+the profile tools take an exact handle, they cannot search. never guess or invent a handle, and never try variations of a name to see which one sticks. to find someone's profile, search the web for it (for example: site:linkedin.com/in "their name" company) and take the handle out of the profile url in the results. only then call the profile tool. if search does not turn up a profile url, say the profile was not found rather than guessing. a linkedin /company/ slug is not a person: read it with linkedin_company_profile, never with linkedin_profile.`;
 
 const tools = [
   webSearch,
   readUrl,
   linkedinProfile,
+  linkedinCompany,
   instagramProfile,
   tiktokProfile,
   redditProfile,

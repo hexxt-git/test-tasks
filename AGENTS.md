@@ -183,9 +183,10 @@ will happen again with the next actor.
 
 **The free plan allows 5 concurrent actor runs.** Exceeding it throws
 `By launching this job you will exceed your limit of 5 concurrent Actor runs`
-rather than queueing. Worker concurrency is 3, and `linkedin_profile` and
-`tiktok_profile` each fire two runs, so three parallel jobs can already breach
-it. There is no semaphore in `runActor` yet — this is a known gap.
+rather than queueing. Worker concurrency is 3, and `linkedin_profile`,
+`linkedin_company_profile` and `tiktok_profile` each fire two runs, so three
+parallel jobs can already breach it. There is no semaphore in `runActor` yet —
+this is a known gap.
 
 ## Costs
 
@@ -196,6 +197,7 @@ Per call, on the free tier. `read_url` is the only free tool.
 | `web_search`        | SearXNG, else `apify/google-search-scraper`     | free, else $0.0055   |
 | `read_url`          | direct fetch + Defuddle                         | free                 |
 | `linkedin_profile`  | `apimaestro/linkedin-profile-detail` + `-posts` | $0.025 (4 posts)     |
+| `linkedin_company_profile` | `apimaestro/linkedin-company-detail` + `linkedin-company-posts` | $0.025 (4 posts) |
 | `instagram_profile` | `apify/instagram-scraper`                       | $0.0027              |
 | `tiktok_profile`    | `scraptik/tiktok-api` (2 runs)                  | $0.0040              |
 | `reddit_profile`    | `fatihtahta/reddit-scraper-search-fast`         | $0.015 (10 items)    |

@@ -13,6 +13,11 @@ import {
   MAX_POSTS as LINKEDIN_MAX_POSTS,
 } from "../providers/apify/linkedin.ts";
 import {
+  getLinkedinCompany,
+  HANDLE as LINKEDIN_COMPANY_HANDLE,
+  MAX_POSTS as LINKEDIN_COMPANY_MAX_POSTS,
+} from "../providers/apify/linkedin-company.ts";
+import {
   getRedditProfile,
   HANDLE as REDDIT_HANDLE,
   MAX_POSTS as REDDIT_MAX_POSTS,
@@ -35,11 +40,12 @@ function defineProfileTool(
   handle: string,
   maxPosts: number,
   lookup: (username: string) => Promise<Profile>,
+  description = `Look up a ${label} profile by ${hint}. Returns profile details and the ${maxPosts} latest posts with their engagement counts. Cannot search: take the ${hint} from a profile URL found with web_search first.`,
 ) {
   return defineTool({
     name: `${platform}_profile`,
     label,
-    description: `Look up a ${label} profile by ${hint}. Returns profile details and the ${maxPosts} latest posts with their engagement counts. Cannot search: take the ${hint} from a profile URL found with web_search first.`,
+    description,
 
     parameters: Type.Object({
       // Rejected before the call is billed, so a name or a URL costs nothing.
@@ -83,6 +89,17 @@ export const linkedinProfile = defineProfileTool(
   LINKEDIN_HANDLE,
   LINKEDIN_MAX_POSTS,
   getLinkedinProfile,
+  `Look up a LinkedIn member profile by public identifier. Returns profile details and the ${LINKEDIN_MAX_POSTS} latest posts with their engagement counts. People only: a /company/ slug resolves to whichever member happens to hold the same /in/ identifier, so use linkedin_company_profile for company pages. Cannot search: take the public identifier from a /in/ profile URL found with web_search first.`,
+);
+
+export const linkedinCompany = defineProfileTool(
+  "linkedin_company",
+  "LinkedIn Company",
+  "universal name",
+  LINKEDIN_COMPANY_HANDLE,
+  LINKEDIN_COMPANY_MAX_POSTS,
+  getLinkedinCompany,
+  `Look up a LinkedIn company page by universal name. Returns the company details (industry, size, headquarters, specialties, funding) and the ${LINKEDIN_COMPANY_MAX_POSTS} latest posts with their engagement counts. Company pages only: use linkedin_profile for a person. Cannot search: take the universal name from a /company/ URL found with web_search first.`,
 );
 
 export const instagramProfile = defineProfileTool(
